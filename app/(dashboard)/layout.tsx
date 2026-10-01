@@ -1,9 +1,7 @@
-import { AdminShell } from "@/components/admin/admin-shell";
+import { AdminShell } from "./_components/admin-shell";
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   return <AdminShell>{children}</AdminShell>;
-}
+};
+
+export default DashboardLayout;
