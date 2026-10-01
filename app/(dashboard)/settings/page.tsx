@@ -74,10 +74,11 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">
-              Admin role management and audit logging will be wired to the RBAC and audit ledger endpoints.
+              Admin access is controlled by the backend ADMIN_EMAILS allowlist, and staff actions are
+              recorded to the audit ledger (PRD 5.2) available at <code className="rounded bg-muted px-1">/admin/audit-log</code>.
             </p>
             <Button variant="outline" size="sm" className="mt-3" disabled>
-              Manage admin roles
+              Manage admin roles (coming soon)
             </Button>
           </CardContent>
         </Card>

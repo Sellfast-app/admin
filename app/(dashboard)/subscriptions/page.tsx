@@ -3,25 +3,28 @@
 import { useMemo, useState } from "react";
 import { DataToolbar } from "@/components/admin/data-toolbar";
 import { DataTable, type Column } from "@/components/admin/data-table";
+import { LiveBadge } from "@/components/admin/live-badge";
 import { adminSubscriptions, type AdminSubscription } from "@/lib/admin-data";
+import { useAdminList, type AdminSubscriptionRow } from "@/lib/admin-client";
 import { formatCurrency } from "@/lib/admin-types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 
-const tabs = ["All", "Subscription", "Markup"];
+const tabs = ["All", "Active", "Trialing", "Cancelled", "Overdue"];
 
 export default function SubscriptionsPage() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("All");
 
-  const rows = useMemo(
-    () =>
-      adminSubscriptions.filter(
-        (sub) =>
-          (tab === "All" || sub.plan === tab) &&
-          sub.store.toLowerCase().includes(search.toLowerCase())
-      ),
-    [search, tab]
+  const state = useAdminList<AdminSubscriptionRow>("subscriptions", { search, status: tab === "All" ? undefined : tab }, { limit: 50 });
+  const { rows, live, loading } = useMemo(
+    () => ({ rows: state.rows ?? adminSubscriptions, live: state.live, loading: state.loading }),
+    [state.rows, state.live, state.loading]
+  );
+
+  const filtered = useMemo(
+    () => (live ? rows : rows.filter((sub: AdminSubscription) => tab === "All" || sub.status === tab)),
+    [rows, live, tab]
   );
 
   const columns: Column<AdminSubscription>[] = [
@@ -37,16 +40,26 @@ export default function SubscriptionsPage() {
     { key: "renews", header: "Renews" },
   ];
 
-  const subscriptionCount = adminSubscriptions.filter((s) => s.plan === "Subscription").length;
-  const markupCount = adminSubscriptions.filter((s) => s.plan === "Markup").length;
+  const subscriptionCount = live
+    ? rows.filter((s: AdminSubscriptionRow) => s.plan?.toLowerCase().includes("sub")).length
+    : adminSubscriptions.filter((s) => s.plan === "Subscription").length;
+  const markupCount = live
+    ? rows.filter((s: AdminSubscriptionRow) => Number(s.amount) === 0).length
+    : adminSubscriptions.filter((s) => s.plan === "Markup").length;
+  const attentionCount = rows.filter((s) =>
+    ["Overdue", "Trialing", "overdue", "trialing"].includes(s.status)
+  ).length;
 
   return (
     <div className="space-y-5 p-4 sm:p-6">
-      <div>
-        <h1 className="text-lg font-semibold">Subscriptions</h1>
-        <p className="text-xs text-muted-foreground">
-          Plan distribution across subscription and markup monetization models
-        </p>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold">Subscriptions</h1>
+          <p className="text-xs text-muted-foreground">
+            Plan distribution across subscription and markup monetization models
+          </p>
+        </div>
+        <LiveBadge live={live} loading={loading} />
       </div>
 
       <section className="grid gap-5 md:grid-cols-3">
@@ -60,25 +73,21 @@ export default function SubscriptionsPage() {
         </Card>
         <Card className="shadow-none">
           <CardHeader className="pb-2"><CardTitle className="text-sm">Overdue / trialing</CardTitle></CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">
-              {adminSubscriptions.filter((s) => s.status === "Overdue" || s.status === "Trialing").length}
-            </p>
-          </CardContent>
+          <CardContent><p className="text-2xl font-bold">{attentionCount}</p></CardContent>
         </Card>
       </section>
 
       <DataToolbar
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Search store..."
+        searchPlaceholder="Search vendor or plan..."
         tabs={tabs}
         activeTab={tab}
         onTabChange={setTab}
         onExport={() => toast.success("Subscriptions export queued")}
       />
 
-      <DataTable columns={columns} rows={rows} emptyMessage="No subscriptions match your filters" />
+      <DataTable columns={columns} rows={filtered} emptyMessage="No subscriptions match your filters" />
     </div>
   );
 }

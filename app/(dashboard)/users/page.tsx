@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { DataToolbar } from "@/components/admin/data-toolbar";
 import { DataTable, type Column } from "@/components/admin/data-table";
+import { LiveBadge } from "@/components/admin/live-badge";
 import { adminUsers, type AdminUser } from "@/lib/admin-data";
+import { useAdminList, type AdminUserRow } from "@/lib/admin-client";
 import { toast } from "sonner";
 
 const tabs = ["All", "Nigeria", "Kenya", "Ghana", "United Kingdom"];
@@ -12,15 +14,19 @@ export default function UsersPage() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("All");
 
-  const rows = useMemo(
-    () =>
-      adminUsers.filter(
-        (user) =>
-          (tab === "All" || user.country === tab) &&
-          (user.name.toLowerCase().includes(search.toLowerCase()) ||
-            user.email.toLowerCase().includes(search.toLowerCase()))
-      ),
-    [search, tab]
+  const state = useAdminList<AdminUserRow>("users", { search, country: tab }, { limit: 50 });
+  const { rows, live, loading } = useMemo(
+    () => ({
+      rows: state.rows ?? adminUsers,
+      live: state.live,
+      loading: state.loading,
+    }),
+    [state.rows, state.live, state.loading]
+  );
+
+  const filtered = useMemo(
+    () => (live ? rows : rows.filter((user: AdminUser) => tab === "All" || user.country === tab)),
+    [rows, live, tab]
   );
 
   const columns: Column<AdminUser>[] = [
@@ -43,11 +49,14 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-5 p-4 sm:p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold">Users</h1>
-          <p className="text-xs text-muted-foreground">{adminUsers.length} registered merchants</p>
+          <p className="text-xs text-muted-foreground">
+            {live ? `${state.total} registered merchants` : `${adminUsers.length} sample merchants — connect the backend for live data`}
+          </p>
         </div>
+        <LiveBadge live={live} loading={loading} />
       </div>
 
       <DataToolbar
@@ -60,7 +69,7 @@ export default function UsersPage() {
         onExport={() => toast.success("Users export queued")}
       />
 
-      <DataTable columns={columns} rows={rows} emptyMessage="No merchants match your filters" />
+      <DataTable columns={columns} rows={filtered} emptyMessage="No merchants match your filters" />
     </div>
   );
 }

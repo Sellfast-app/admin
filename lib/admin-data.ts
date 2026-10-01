@@ -94,19 +94,20 @@ export interface AdminTransaction {
   store: string;
   amount: number;
   platformFee: number;
+  vendorAmount: number;
   status: string;
   date: string;
 }
 
 export const adminTransactions: AdminTransaction[] = [
-  { id: "t-5001", reference: "TRX-88112", gateway: "Paystack", store: "Item 7 Go", amount: 45_500, platformFee: 1_864, status: "Successful", date: "2026-09-30" },
-  { id: "t-5002", reference: "TRX-88111", gateway: "Kuvarpay", store: "SM Bites", amount: 12_000, platformFee: 1_100, status: "Successful", date: "2026-09-30" },
-  { id: "t-5003", reference: "TRX-88110", gateway: "Paystack", store: "Blaze Grill", amount: 8_750, platformFee: 938, status: "Failed", date: "2026-09-29" },
-  { id: "t-5004", reference: "TRX-88109", gateway: "Nomba", store: "TommyArt's Place", amount: 23_000, platformFee: 1_190, status: "Successful", date: "2026-09-29" },
-  { id: "t-5005", reference: "TRX-88108", gateway: "Paystack", store: "Item 7 Go", amount: 6_200, platformFee: 810, status: "Pending", date: "2026-09-29" },
-  { id: "t-5006", reference: "TRX-88107", gateway: "Paystack", store: "Nairobi Cart", amount: 31_400, platformFee: 1_442, status: "Successful", date: "2026-09-28" },
-  { id: "t-5007", reference: "TRX-88106", gateway: "Nomba", store: "Lagos Mart", amount: 15_800, platformFee: 974, status: "Failed", date: "2026-09-28" },
-  { id: "t-5008", reference: "TRX-88105", gateway: "Kuvarpay", store: "SM Bites", amount: 9_900, platformFee: 995, status: "Successful", date: "2026-09-27" },
+  { id: "t-5001", reference: "TRX-88112", gateway: "Paystack", store: "Item 7 Go", amount: 45_500, platformFee: 1_864, vendorAmount: 43_636, status: "Successful", date: "2026-09-30" },
+  { id: "t-5002", reference: "TRX-88111", gateway: "Kuvarpay", store: "SM Bites", amount: 12_000, platformFee: 1_100, vendorAmount: 10_900, status: "Successful", date: "2026-09-30" },
+  { id: "t-5003", reference: "TRX-88110", gateway: "Paystack", store: "Blaze Grill", amount: 8_750, platformFee: 938, vendorAmount: 7_812, status: "Failed", date: "2026-09-29" },
+  { id: "t-5004", reference: "TRX-88109", gateway: "Nomba", store: "TommyArt's Place", amount: 23_000, platformFee: 1_190, vendorAmount: 21_810, status: "Successful", date: "2026-09-29" },
+  { id: "t-5005", reference: "TRX-88108", gateway: "Paystack", store: "Item 7 Go", amount: 6_200, platformFee: 810, vendorAmount: 5_390, status: "Pending", date: "2026-09-29" },
+  { id: "t-5006", reference: "TRX-88107", gateway: "Paystack", store: "Nairobi Cart", amount: 31_400, platformFee: 1_442, vendorAmount: 29_958, status: "Successful", date: "2026-09-28" },
+  { id: "t-5007", reference: "TRX-88106", gateway: "Nomba", store: "Lagos Mart", amount: 15_800, platformFee: 974, vendorAmount: 14_826, status: "Failed", date: "2026-09-28" },
+  { id: "t-5008", reference: "TRX-88105", gateway: "Kuvarpay", store: "SM Bites", amount: 9_900, platformFee: 995, vendorAmount: 8_905, status: "Successful", date: "2026-09-27" },
 ];
 
 // ── Deliveries ──────────────────────────────────────────────────────────────

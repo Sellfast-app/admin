@@ -1,24 +1,69 @@
-import { StatCard } from "@/components/admin/stat-card";
+"use client";
+
+import { StatCard, type StatItem } from "@/components/admin/stat-card";
 import { BarsChart } from "@/components/admin/bars-chart";
 import { LineChart } from "@/components/admin/line-chart";
+import { LiveBadge } from "@/components/admin/live-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { overviewStats, signupsData, retentionData, growthData, channelMix } from "@/lib/admin-data";
+import { Skeleton } from "@/components/ui/skeleton";
+import { signupsData, retentionData, growthData, channelMix } from "@/lib/admin-data";
+import { useAdminPayload } from "@/lib/admin-client";
 import { formatCurrency } from "@/lib/admin-types";
 
-const growthDelta = Math.round(
-  ((growthData[growthData.length - 1].value - growthData[growthData.length - 2].value) /
-    growthData[growthData.length - 2].value) *
-    100
-);
+interface TrendPoint {
+  label: string;
+  value: number;
+}
+
+interface OverviewPayload {
+  stats: StatItem[];
+  metrics: Record<string, number>;
+  signups: TrendPoint[];
+  retention: TrendPoint[];
+  growth: TrendPoint[];
+  channelMix: { label: string; value: number }[];
+  topStores: { name: string; revenue: number }[];
+  generatedAt: string;
+}
 
 export default function OverviewPage() {
+  const { data, live, loading } = useAdminPayload<OverviewPayload>("metrics/overview");
+
+  const stats = data?.stats ?? [];
+  const growthPoints = data?.growth?.length ? data.growth : growthData;
+  const signupPoints = data?.signups?.length ? data.signups : signupsData;
+  const retentionPoints = data?.retention?.length ? data.retention : retentionData;
+  const channels = data?.channelMix?.length ? data.channelMix : channelMix;
+  const topStores = data?.topStores?.length ? data.topStores : [];
+
+  const growthDelta =
+    growthPoints.length >= 2 && growthPoints[growthPoints.length - 2].value > 0
+      ? Math.round(
+          ((growthPoints[growthPoints.length - 1].value - growthPoints[growthPoints.length - 2].value) /
+            growthPoints[growthPoints.length - 2].value) *
+            100
+        )
+      : null;
+
   return (
     <div className="space-y-6 p-4 sm:p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold">Overview</h1>
+          <p className="text-xs text-muted-foreground">Platform-wide metrics across all merchants</p>
+        </div>
+        <LiveBadge live={live} loading={loading} />
+      </div>
+
       <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        {overviewStats.map((stat) => (
-          <StatCard key={stat.label} stat={stat} />
-        ))}
+        {(loading && !data ? Array.from({ length: 8 }) : stats).map((stat, index) =>
+          stat ? (
+            <StatCard key={(stat as StatItem).label} stat={stat as StatItem} />
+          ) : (
+            <Skeleton key={index} className="h-[118px] rounded-xl" />
+          )
+        )}
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[1.35fr_1fr]">
@@ -29,17 +74,19 @@ export default function OverviewPage() {
                 <CardTitle className="text-base">Merchant growth</CardTitle>
                 <p className="text-xs text-muted-foreground">GMV across all sales channels</p>
               </div>
-              <Badge
-                variant="outline"
-                className={growthDelta >= 0 ? "border-primary/20 bg-primary/10 text-primary" : "border-red-200 bg-red-50 text-red-700"}
-              >
-                {growthDelta >= 0 ? "+" : ""}
-                {growthDelta}% MoM
-              </Badge>
+              {growthDelta !== null && (
+                <Badge
+                  variant="outline"
+                  className={growthDelta >= 0 ? "border-primary/20 bg-primary/10 text-primary" : "border-red-200 bg-red-50 text-red-700"}
+                >
+                  {growthDelta >= 0 ? "+" : ""}
+                  {growthDelta}% MoM
+                </Badge>
+              )}
             </div>
           </CardHeader>
           <CardContent>
-            <LineChart points={growthData} />
+            <LineChart points={growthPoints} />
           </CardContent>
         </Card>
 
@@ -50,7 +97,7 @@ export default function OverviewPage() {
               <p className="text-xs text-muted-foreground">New merchants per month</p>
             </CardHeader>
             <CardContent>
-              <BarsChart points={signupsData} />
+              <BarsChart points={signupPoints} />
             </CardContent>
           </Card>
 
@@ -60,7 +107,7 @@ export default function OverviewPage() {
               <p className="text-xs text-muted-foreground">Monthly active merchant rate</p>
             </CardHeader>
             <CardContent>
-              <BarsChart points={retentionData} />
+              <BarsChart points={retentionPoints} />
             </CardContent>
           </Card>
         </div>
@@ -70,10 +117,10 @@ export default function OverviewPage() {
         <Card className="shadow-none">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Sales channel mix</CardTitle>
-            <p className="text-xs text-muted-foreground">Order share by acquisition channel</p>
+            <p className="text-xs text-muted-foreground">Order share by fulfillment channel</p>
           </CardHeader>
           <CardContent className="space-y-4">
-            {channelMix.map((channel) => (
+            {channels.map((channel) => (
               <div key={channel.label} className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">{channel.label}</span>
@@ -93,25 +140,26 @@ export default function OverviewPage() {
         <Card className="shadow-none">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Top stores by revenue</CardTitle>
-            <p className="text-xs text-muted-foreground">Current month, all countries</p>
+            <p className="text-xs text-muted-foreground">
+              {live ? "All time, all countries" : "Sample data — connect the backend to see live values"}
+            </p>
           </CardHeader>
           <CardContent className="space-y-3">
-            {[
-              { name: "Lagos Mart", revenue: 8_930_000 },
-              { name: "Item 7 Go", revenue: 4_820_000 },
-              { name: "Nairobi Cart", revenue: 3_410_000 },
-              { name: "SM Bites", revenue: 2_140_000 },
-            ].map((store, index) => (
-              <div key={store.name} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
-                    {index + 1}
-                  </span>
-                  <span className="text-sm font-medium">{store.name}</span>
+            {topStores.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">No store revenue recorded yet</p>
+            ) : (
+              topStores.map((store, index) => (
+                <div key={store.name} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
+                      {index + 1}
+                    </span>
+                    <span className="text-sm font-medium">{store.name}</span>
+                  </div>
+                  <span className="text-sm font-semibold">{formatCurrency(store.revenue)}</span>
                 </div>
-                <span className="text-sm font-semibold">{formatCurrency(store.revenue)}</span>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
       </section>

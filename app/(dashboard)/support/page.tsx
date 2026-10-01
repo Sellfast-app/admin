@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { DataToolbar } from "@/components/admin/data-toolbar";
 import { DataTable, type Column } from "@/components/admin/data-table";
+import { LiveBadge } from "@/components/admin/live-badge";
 import { adminTickets, type AdminTicket } from "@/lib/admin-data";
+import { useAdminList, type AdminTicketRow } from "@/lib/admin-client";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
@@ -19,15 +21,21 @@ export default function SupportPage() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("All");
 
-  const rows = useMemo(
-    () =>
-      adminTickets.filter(
-        (ticket) =>
-          (tab === "All" || ticket.status === tab) &&
-          (ticket.subject.toLowerCase().includes(search.toLowerCase()) ||
-            ticket.requester.toLowerCase().includes(search.toLowerCase()))
-      ),
-    [search, tab]
+  const state = useAdminList<AdminTicketRow>("support/tickets", { search, status: tab === "All" ? undefined : tab });
+  // The backend ticketing module is not live yet (returns an empty envelope),
+  // so keep showing the sample tickets until real data arrives.
+  const { rows, live, loading } = useMemo(
+    () => ({
+      rows: state.rows?.length ? state.rows : adminTickets,
+      live: state.live && (state.rows?.length ?? 0) > 0,
+      loading: state.loading,
+    }),
+    [state.rows, state.live, state.loading]
+  );
+
+  const filtered = useMemo(
+    () => (live ? rows : rows.filter((t: AdminTicket) => tab === "All" || t.status === tab)),
+    [rows, live, tab]
   );
 
   const columns: Column<AdminTicket>[] = [
@@ -56,9 +64,16 @@ export default function SupportPage() {
 
   return (
     <div className="space-y-5 p-4 sm:p-6">
-      <div>
-        <h1 className="text-lg font-semibold">Support</h1>
-        <p className="text-xs text-muted-foreground">Merchant tickets and resolution tracking</p>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold">Support</h1>
+          <p className="text-xs text-muted-foreground">
+            {live
+              ? `${state.total} merchant tickets`
+              : "Merchant tickets — the backend ticketing module is not live yet, showing sample data"}
+          </p>
+        </div>
+        <LiveBadge live={live} loading={loading} />
       </div>
 
       <DataToolbar
@@ -71,7 +86,7 @@ export default function SupportPage() {
         onExport={() => toast.success("Support export queued")}
       />
 
-      <DataTable columns={columns} rows={rows} emptyMessage="No tickets match your filters" />
+      <DataTable columns={columns} rows={filtered} emptyMessage="No tickets match your filters" />
     </div>
   );
 }

@@ -3,25 +3,30 @@
 import { useMemo, useState } from "react";
 import { DataToolbar } from "@/components/admin/data-toolbar";
 import { DataTable, type Column } from "@/components/admin/data-table";
+import { LiveBadge } from "@/components/admin/live-badge";
 import { adminTransactions, type AdminTransaction } from "@/lib/admin-data";
+import { useAdminList, type AdminTransactionRow } from "@/lib/admin-client";
 import { formatCurrency } from "@/lib/admin-types";
 import { toast } from "sonner";
 
-const tabs = ["All", "Paystack", "Nomba", "Kuvarpay", "Fincra"];
+const tabs = ["All", "Successful", "Pending", "Failed", "Abandoned"];
 
 export default function TransactionsPage() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("All");
 
-  const rows = useMemo(
+  const state = useAdminList<AdminTransactionRow>("transactions", { search, status: tab === "All" ? undefined : tab }, { limit: 50 });
+  const { rows, live, loading } = useMemo(
+    () => ({ rows: state.rows ?? adminTransactions, live: state.live, loading: state.loading }),
+    [state.rows, state.live, state.loading]
+  );
+
+  const filtered = useMemo(
     () =>
-      adminTransactions.filter(
-        (txn) =>
-          (tab === "All" || txn.gateway === tab) &&
-          (txn.reference.toLowerCase().includes(search.toLowerCase()) ||
-            txn.store.toLowerCase().includes(search.toLowerCase()))
-      ),
-    [search, tab]
+      live
+        ? rows
+        : rows.filter((txn: AdminTransaction) => tab === "All" || txn.status === tab),
+    [rows, live, tab]
   );
 
   const columns: Column<AdminTransaction>[] = [
@@ -40,17 +45,25 @@ export default function TransactionsPage() {
         <span className="font-medium text-primary">{formatCurrency(txn.platformFee)}</span>
       ),
     },
+    {
+      key: "vendorAmount",
+      header: "Vendor amount",
+      render: (txn) => formatCurrency(txn.vendorAmount ?? 0),
+    },
     { key: "status", header: "Status" },
     { key: "date", header: "Date" },
   ];
 
   return (
     <div className="space-y-5 p-4 sm:p-6">
-      <div>
-        <h1 className="text-lg font-semibold">Transactions</h1>
-        <p className="text-xs text-muted-foreground">
-          Split-payment breakdown: platform fee = ₦500 markup + transaction percentage
-        </p>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold">Transactions</h1>
+          <p className="text-xs text-muted-foreground">
+            Split-payment breakdown: platform fee vs vendor amount (PRD 2.3)
+          </p>
+        </div>
+        <LiveBadge live={live} loading={loading} />
       </div>
 
       <DataToolbar
@@ -63,7 +76,7 @@ export default function TransactionsPage() {
         onExport={() => toast.success("Transactions export queued")}
       />
 
-      <DataTable columns={columns} rows={rows} emptyMessage="No transactions match your filters" />
+      <DataTable columns={columns} rows={filtered} emptyMessage="No transactions match your filters" />
     </div>
   );
 }

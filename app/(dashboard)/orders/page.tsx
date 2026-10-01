@@ -3,26 +3,27 @@
 import { useMemo, useState } from "react";
 import { DataToolbar } from "@/components/admin/data-toolbar";
 import { DataTable, type Column } from "@/components/admin/data-table";
+import { LiveBadge } from "@/components/admin/live-badge";
 import { adminOrders, type AdminOrder } from "@/lib/admin-data";
+import { useAdminList, type AdminOrderRow } from "@/lib/admin-client";
 import { formatCurrency } from "@/lib/admin-types";
 import { toast } from "sonner";
 
-const tabs = ["All", "Website", "WhatsApp AI", "Web Chat"];
+const tabs = ["All", "Website", "WhatsApp AI", "Web Chat", "Sendbox", "Relay"];
 
 export default function OrdersPage() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("All");
 
-  const rows = useMemo(
-    () =>
-      adminOrders.filter(
-        (order) =>
-          (tab === "All" || order.channel === tab) &&
-          (order.reference.toLowerCase().includes(search.toLowerCase()) ||
-            order.store.toLowerCase().includes(search.toLowerCase()) ||
-            order.customer.toLowerCase().includes(search.toLowerCase()))
-      ),
-    [search, tab]
+  const state = useAdminList<AdminOrderRow>("orders", { search, status: tab === "All" ? undefined : tab }, { limit: 50 });
+  const { rows, live, loading } = useMemo(
+    () => ({ rows: state.rows ?? adminOrders, live: state.live, loading: state.loading }),
+    [state.rows, state.live, state.loading]
+  );
+
+  const filtered = useMemo(
+    () => (live ? rows : rows.filter((order: AdminOrder) => tab === "All" || order.channel === tab)),
+    [rows, live, tab]
   );
 
   const columns: Column<AdminOrder>[] = [
@@ -41,9 +42,14 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-5 p-4 sm:p-6">
-      <div>
-        <h1 className="text-lg font-semibold">Orders</h1>
-        <p className="text-xs text-muted-foreground">All orders across website, WhatsApp AI and web chat channels</p>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold">Orders</h1>
+          <p className="text-xs text-muted-foreground">
+            {live ? `${state.total} orders across all channels` : "All orders across website, WhatsApp AI and web chat channels"}
+          </p>
+        </div>
+        <LiveBadge live={live} loading={loading} />
       </div>
 
       <DataToolbar
@@ -56,7 +62,7 @@ export default function OrdersPage() {
         onExport={() => toast.success("Orders export queued")}
       />
 
-      <DataTable columns={columns} rows={rows} emptyMessage="No orders match your filters" />
+      <DataTable columns={columns} rows={filtered} emptyMessage="No orders match your filters" />
     </div>
   );
 }

@@ -131,11 +131,14 @@ export async function forwardToUpstream(
 
     try {
       const parsed = JSON.parse(responseText);
-      return NextResponse.json({
+      const envelope: Record<string, unknown> = {
         status: parsed.status ?? "success",
         message: parsed.message ?? "OK",
         data: parsed.data ?? parsed,
-      });
+      };
+      // Standard list contract: pass pagination meta through untouched.
+      if (parsed.meta !== undefined) envelope.meta = parsed.meta;
+      return NextResponse.json(envelope);
     } catch {
       return NextResponse.json({
         status: "success",
