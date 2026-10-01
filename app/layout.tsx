@@ -12,6 +12,11 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: 'Swiftree Admin',
   description: 'Platform operations console for Swiftree',
+  manifest: '/manifest.json',
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/icon-192x192.png',
+  },
 };
 
 export const viewport: Viewport = {
