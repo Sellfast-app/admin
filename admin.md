@@ -41,7 +41,7 @@ Copy `.env.example` to `.env` and fill in:
 
 | Variable | Required | Description |
 |---|---|---|
-| `ADMIN_API_BASE_URL` | Yes | Base URL of the Swiftree backend. Staging: `https://staging.swiftree.app`, production: `https://api.swiftree.app` (confirm with backend). |
+| `ADMIN_API_BASE_URL` | Override | Base URL of the live Swiftree backend. The app defaults to `https://api.swiftree.app`; set this only when pointing at another environment. |
 | `INTERNAL_SECRET` | Recommended | Shared server-to-server secret. Use the **same value as the vendor app** so the backend can trust the caller. |
 | `NEXT_PUBLIC_API_BASE_URL` | Fallback | Only used if `ADMIN_API_BASE_URL` is unset (kept for parity with the vendor app). |
 
@@ -163,7 +163,6 @@ curl -b cookies.txt "http://localhost:3000/api/admin/users?page=1&limit=20"
 
 ```json
 { "status": "error", "message": "Admin authentication required", "data": null }   // 401, no/invalid session
-{ "status": "error", "message": "ADMIN_API_BASE_URL is not configured ...", "data": null }  // 503
 { "status": "error", "message": "Upstream error 404 ...", "data": null }          // passthrough from backend
 { "status": "error", "message": "Upstream request timed out", "data": null }      // 504
 ```

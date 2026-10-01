@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
  */
 
 export const ADMIN_COOKIE = "admin_token";
+const DEFAULT_API_BASE_URL = "https://api.swiftree.app";
 
 export interface UpstreamUser {
   id?: string;
@@ -35,7 +36,7 @@ export function getApiBaseUrl(): string | null {
   return (
     process.env.ADMIN_API_BASE_URL?.trim().replace(/\/+$/, "") ||
     process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-    null
+    DEFAULT_API_BASE_URL
   );
 }
 
