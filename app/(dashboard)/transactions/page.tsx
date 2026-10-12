@@ -4,10 +4,10 @@ import { useMemo, useState } from "react";
 import { DataToolbar } from "@/components/admin/data-toolbar";
 import { DataTable, type Column } from "@/components/admin/data-table";
 import { LiveBadge } from "@/components/admin/live-badge";
-import { adminTransactions, type AdminTransaction } from "@/lib/admin-data";
+import type { AdminTransaction } from "@/lib/admin-data";
 import { useAdminList, type AdminTransactionRow } from "@/lib/admin-client";
 import { formatCurrency } from "@/lib/admin-types";
-import { toast } from "sonner";
+import { MetricState } from "@/components/admin/metric-state";
 
 const tabs = ["All", "Successful", "Pending", "Failed", "Abandoned"];
 
@@ -17,7 +17,7 @@ export default function TransactionsPage() {
 
   const state = useAdminList<AdminTransactionRow>("transactions", { search, status: tab === "All" ? undefined : tab }, { limit: 50 });
   const { rows, live, loading } = useMemo(
-    () => ({ rows: state.rows ?? adminTransactions, live: state.live, loading: state.loading }),
+    () => ({ rows: state.rows ?? [], live: state.live, loading: state.loading }),
     [state.rows, state.live, state.loading]
   );
 
@@ -73,10 +73,12 @@ export default function TransactionsPage() {
         tabs={tabs}
         activeTab={tab}
         onTabChange={setTab}
-        onExport={() => toast.success("Transactions export queued")}
+        showExport={false}
       />
 
-      <DataTable columns={columns} rows={filtered} emptyMessage="No transactions match your filters" />
+      <MetricState loading={loading} error={state.error} refresh={state.refresh} empty={false}>
+        <DataTable columns={columns} rows={filtered} emptyMessage="No transactions match your filters" />
+      </MetricState>
     </div>
   );
 }

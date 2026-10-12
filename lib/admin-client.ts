@@ -82,7 +82,7 @@ export function useAdminList<T>(
         if (!res.ok) throw new Error(`Upstream ${res.status}`);
         const body = (await res.json()) as Envelope<T[]>;
         if (!Array.isArray(body.data)) throw new Error("Unexpected response shape");
-        setRows(body.data);
+        setRows(path === "users" ? body.data.map(row => mapUser(row as AnyRow)) as T[] : body.data);
         setMeta(body.meta ?? null);
         setLive(true);
         setError(null);
@@ -164,11 +164,11 @@ const text = (v: unknown, fallback = "—"): string => {
 export function mapUser(u: AnyRow): AdminUserRow {
   return {
     id: u.id,
-    name: text(u.name),
+    name: text(u.merchantName ?? u.name),
     email: text(u.email),
     country: text(u.country),
     businessType: text(u.businessType),
-    stores: Number(u.storeCount ?? u.stores ?? 0),
+    stores: Number(u.storesCount ?? u.storeCount ?? u.stores ?? 0),
     status: text(u.status),
     joined: text(u.joined),
   };

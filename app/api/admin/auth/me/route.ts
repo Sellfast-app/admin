@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       { status: "error", message: profile.message ?? "Session invalid", data: null },
       { status: profile.status }
     );
-    if (profile.status === 401) {
+    if (profile.status === 401 || profile.status === 403) {
       response.cookies.set(ADMIN_COOKIE, "", { path: "/", maxAge: 0 });
     }
     return response;

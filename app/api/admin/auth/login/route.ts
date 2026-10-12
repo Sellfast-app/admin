@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ADMIN_COOKIE, loginAdmin } from "@/lib/admin-api";
+import { ADMIN_COOKIE, loginAdmin, isAdminAuthEnabled } from "@/lib/admin-api";
 
 export async function POST(request: NextRequest) {
+  if (!isAdminAuthEnabled()) return NextResponse.json({ status: "error", message: "Admin sign-in is not enabled yet", data: null }, { status: 503 });
   try {
     const { email, password } = await request.json().catch(() => ({}));
 
