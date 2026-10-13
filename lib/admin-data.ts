@@ -183,6 +183,22 @@ export const adminTickets: AdminTicket[] = [
   { id: "tk-04", subject: "Delivery tracking link broken", requester: "Grace Wanjiku", store: "Nairobi Cart", priority: "Medium", status: "Open", opened: "2026-09-30" },
 ];
 
+// ── Admin staff ──────────────────────────────────────────────────────────────
+export interface AdminStaff {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+  lastActive: string;
+}
+
+export const adminStaff: AdminStaff[] = [
+  { id: "staff-01", name: "Caleb Akpomughe", email: "caleb@swiftree.app", role: "Super Admin", status: "Active", lastActive: "Today" },
+  { id: "staff-02", name: "Operations Lead", email: "ops@swiftree.app", role: "Operations Admin", status: "Active", lastActive: "Yesterday" },
+  { id: "staff-03", name: "Support Manager", email: "support@swiftree.app", role: "Support Admin", status: "Invited", lastActive: "Pending" },
+];
+
 // ── Stores (for drilldown) ──────────────────────────────────────────────────
 export interface AdminStore {
   id: string;

@@ -109,6 +109,7 @@ All endpoints below require the `admin_token` cookie (except login).
 | `/api/admin/subscriptions` | `/admin/subscriptions` | `page, limit, plan, status` | Subscriptions page |
 | `/api/admin/support/tickets` | `/admin/support/tickets` | `page, limit, status, priority` | Support page |
 | `/api/admin/audit-log` | `/admin/audit-log` | `page, limit, module, staffId, from, to` | Audit ledger (PRD 5.2) |
+| `/api/admin/staff` | `/admin/staff` | `page, limit, search, role, status` | Settings staff management |
 
 **Standard list contract** (please implement consistently, backend team):
 
