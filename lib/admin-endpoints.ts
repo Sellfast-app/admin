@@ -12,7 +12,7 @@ export const adminEndpoints: Record<string, string> = {
   "overview/merchant-growth": "/admin/overview/merchant-growth",
   "finance/metrics": "/admin/finance/metrics",
   "finance/gateway-volume": "/admin/finance/gateway-volume",
-  coupons: "/api/coupons",
+  coupons: "/api/coupon/list",
   "coupons/create": "/api/coupon/create",
 };
 
