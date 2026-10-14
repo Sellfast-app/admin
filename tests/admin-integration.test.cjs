@@ -95,3 +95,72 @@ test('finance adapters map documented fields without fabricating missing metrics
   assert.throws(() => parseFinance({}));
   assert.throws(() => parseGateways([{ name: 'Paystack', percentage: 200 }]));
 });
+
+test('overview cards own independent year filters and retention month', () => {
+  const React = require('react');
+  const state = [];
+  let cursor = 0;
+  let requests = [];
+  const exports = {};
+  const metrics = load('lib/admin-metrics.ts');
+  const source = fs.readFileSync('app/(dashboard)/overview/page.tsx', 'utf8');
+  const js = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText;
+  vm.runInNewContext(js, { exports, require: (name) => {
+    if (name === 'react/jsx-runtime') return require(name);
+    if (name === 'react') return { useState: initial => {
+      const index = cursor++;
+      if (state[index] === undefined) state[index] = initial;
+      return [state[index], value => { state[index] = value; }];
+    } };
+    if (name === '@/lib/admin-metrics') return metrics;
+    if (name === '@/lib/use-admin-metric') return { useAdminMetric: path => {
+      requests.push(path);
+      return { data: null, loading: false, error: null, refresh() {} };
+    } };
+    return new Proxy({}, { get: (_, key) => String(key) });
+  } });
+  function render() {
+    cursor = 0;
+    requests = [];
+    return exports.default();
+  }
+  function find(node, label) {
+    if (!React.isValidElement(node)) return null;
+    if (node.type === 'select' && node.props['aria-label'] === label) return node;
+    for (const child of React.Children.toArray(node.props.children)) {
+      const match = find(child, label);
+      if (match) return match;
+    }
+    return null;
+  }
+  let tree = render();
+  const initial = [...requests];
+  for (const label of ['Merchant growth year', 'Signups year', 'Retention year', 'Retention month']) {
+    assert.ok(find(tree, label), label);
+  }
+  find(tree, 'Merchant growth year').props.onChange({ target: { value: '2024' } });
+  tree = render();
+  assert.equal(requests[0], 'overview/merchant-growth?year=2024');
+  assert.equal(requests[1], initial[1]);
+  assert.equal(requests[2], initial[2]);
+  find(tree, 'Retention year').props.onChange({ target: { value: 'all' } });
+  find(tree, 'Retention month').props.onChange({ target: { value: '3' } });
+  tree = render();
+  assert.equal(requests[2], 'overview/retention?month=3');
+  find(tree, 'Signups year').props.onChange({ target: { value: 'all' } });
+  render();
+  assert.equal(requests[1], 'overview/signups');
+});
+
+test('admin data module contains types only, with no runtime sample datasets', () => {
+  const source = ts.createSourceFile('admin-data.ts', fs.readFileSync('lib/admin-data.ts', 'utf8'), ts.ScriptTarget.Latest, true);
+  assert.ok(source.statements.length > 0);
+  assert.ok(source.statements.every(ts.isInterfaceDeclaration));
+  for (const file of ['subscriptions', 'support', 'settings']) {
+    const page = fs.readFileSync(`app/(dashboard)/${file}/page.tsx`, 'utf8');
+    assert.doesNotMatch(page, /adminSubscriptions|adminTickets|adminStaff|Date\.now\(\)|export queued/);
+  }
+  assert.doesNotMatch(fs.readFileSync('lib/admin-client.ts', 'utf8'), /useRowsOrFallback/);
+});

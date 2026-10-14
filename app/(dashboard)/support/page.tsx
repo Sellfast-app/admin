@@ -4,10 +4,10 @@ import { useMemo, useState } from "react";
 import { DataToolbar } from "@/components/admin/data-toolbar";
 import { DataTable, type Column } from "@/components/admin/data-table";
 import { LiveBadge } from "@/components/admin/live-badge";
-import { adminTickets, type AdminTicket } from "@/lib/admin-data";
+import type { AdminTicket } from "@/lib/admin-data";
 import { useAdminList, type AdminTicketRow } from "@/lib/admin-client";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
+import { MetricState } from "@/components/admin/metric-state";
 
 const tabs = ["All", "Open", "In progress", "Resolved"];
 
@@ -22,12 +22,10 @@ export default function SupportPage() {
   const [tab, setTab] = useState("All");
 
   const state = useAdminList<AdminTicketRow>("support/tickets", { search, status: tab === "All" ? undefined : tab });
-  // The backend ticketing module is not live yet (returns an empty envelope),
-  // so keep showing the sample tickets until real data arrives.
   const { rows, live, loading } = useMemo(
     () => ({
-      rows: state.rows?.length ? state.rows : adminTickets,
-      live: state.live && (state.rows?.length ?? 0) > 0,
+      rows: state.rows ?? [],
+      live: state.live,
       loading: state.loading,
     }),
     [state.rows, state.live, state.loading]
@@ -70,7 +68,7 @@ export default function SupportPage() {
           <p className="text-xs text-muted-foreground">
             {live
               ? `${state.total} merchant tickets`
-              : "Merchant tickets — the backend ticketing module is not live yet, showing sample data"}
+              : "Merchant tickets"}
           </p>
         </div>
         <LiveBadge live={live} loading={loading} />
@@ -83,10 +81,12 @@ export default function SupportPage() {
         tabs={tabs}
         activeTab={tab}
         onTabChange={setTab}
-        onExport={() => toast.success("Support export queued")}
+        showExport={false}
       />
 
-      <DataTable columns={columns} rows={filtered} emptyMessage="No tickets match your filters" />
+      <MetricState loading={loading} error={state.error} refresh={state.refresh} empty={false}>
+        <DataTable columns={columns} rows={filtered} emptyMessage="No tickets match your filters" />
+      </MetricState>
     </div>
   );
 }

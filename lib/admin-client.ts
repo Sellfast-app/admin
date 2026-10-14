@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * Client data layer for the admin dashboard.
@@ -8,8 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
  * All requests go through the Next.js BFF proxy (`/api/admin/*`) which
  * forwards to the Swiftree backend `{base}/admin/*` with the admin session
  * cookie and internal secret. If the backend is unreachable, not configured,
- * or the session is missing, the hook reports `live: false` and callers fall
- * back to the bundled sample data so the dashboard never renders empty/broken.
+ * or the session is missing, the hook reports an error without inventing data.
  *
  * Standard upstream list contract:
  *   { status, message, data: [...], meta: { total, page, lastPage } }
@@ -79,8 +78,10 @@ export function useAdminList<T>(
       cache: "no-store",
     })
       .then(async (res) => {
-        if (!res.ok) throw new Error(`Upstream ${res.status}`);
+        if (!res.ok) throw new Error(res.status === 501 ? "This data is not available yet." : "Unable to load data. Please try again.");
         const body = (await res.json()) as Envelope<T[]>;
+        if (controller.signal.aborted) return;
+        if (body.status && body.status !== "success") throw new Error("The API reported a failed request.");
         if (!Array.isArray(body.data)) throw new Error("Unexpected response shape");
         setRows(path === "users" ? body.data.map(row => mapUser(row as AnyRow)) as T[] : body.data);
         setMeta(body.meta ?? null);
@@ -88,7 +89,7 @@ export function useAdminList<T>(
         setError(null);
       })
       .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (controller.signal.aborted) return;
         setLive(false);
         setRows(null);
         setMeta(null);
@@ -107,39 +108,6 @@ export function useAdminList<T>(
   return { rows, total: meta?.total ?? 0, page: meta?.page ?? 1, lastPage: meta?.lastPage ?? 1, live, loading, error, refresh };
 }
 
-/** Fetch a single JSON payload (metrics, finance summary) with the same fallback pattern. */
-export function useAdminPayload<T>(
-  path: string
-): { data: T | null; live: boolean; loading: boolean; refresh: () => void } {
-  const [data, setData] = useState<T | null>(null);
-  const [live, setLive] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    fetch(`/api/admin/${path}`, { signal: controller.signal, cache: "no-store" })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`Upstream ${res.status}`);
-        const body = (await res.json()) as Envelope<T>;
-        setData(body.data);
-        setLive(true);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setData(null);
-        setLive(false);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, [path, tick]);
-
-  return { data, live, loading, refresh: useCallback(() => setTick((t) => t + 1), []) };
-}
-
 // ── Row adapters (server rows -> existing UI row shapes) ────────────────────
 
 export interface AdminUserRow {
@@ -148,7 +116,7 @@ export interface AdminUserRow {
   email: string;
   country: string;
   businessType: string;
-  stores: number;
+  stores: number | null;
   status: string;
   joined: string;
 }
@@ -168,7 +136,7 @@ export function mapUser(u: AnyRow): AdminUserRow {
     email: text(u.email),
     country: text(u.country),
     businessType: text(u.businessType),
-    stores: Number(u.storesCount ?? u.storeCount ?? u.stores ?? 0),
+    stores: (u.storesCount ?? u.storeCount ?? u.stores) == null ? null : Number(u.storesCount ?? u.storeCount ?? u.stores),
     status: text(u.status),
     joined: text(u.joined),
   };
@@ -185,19 +153,6 @@ export interface AdminOrderRow {
   date: string;
 }
 
-export function mapOrder(o: AnyRow): AdminOrderRow {
-  return {
-    id: o.id,
-    reference: text(o.reference),
-    store: text(o.store),
-    customer: text(o.customer),
-    channel: text(o.channel),
-    amount: Number(o.amount ?? 0),
-    status: text(o.status),
-    date: text(o.date),
-  };
-}
-
 export interface AdminTransactionRow {
   id: string;
   reference: string;
@@ -210,20 +165,6 @@ export interface AdminTransactionRow {
   date: string;
 }
 
-export function mapTransaction(t: AnyRow): AdminTransactionRow {
-  return {
-    id: t.id,
-    reference: text(t.reference),
-    gateway: text(t.gateway),
-    store: text(t.store),
-    amount: Number(t.amount ?? 0),
-    platformFee: Number(t.platformFee ?? 0),
-    vendorAmount: Number(t.vendorAmount ?? 0),
-    status: text(t.status),
-    date: text(t.date),
-  };
-}
-
 export interface AdminDeliveryRow {
   id: string;
   trackingCode: string;
@@ -232,18 +173,6 @@ export interface AdminDeliveryRow {
   destination: string;
   status: string;
   dispatched: string;
-}
-
-export function mapDelivery(d: AnyRow): AdminDeliveryRow {
-  return {
-    id: d.id,
-    trackingCode: text(d.trackingCode),
-    provider: text(d.provider),
-    store: text(d.store),
-    destination: text(d.destination),
-    status: text(d.status),
-    dispatched: text(d.dispatched),
-  };
 }
 
 export interface AdminSubscriptionRow {
@@ -256,32 +185,6 @@ export interface AdminSubscriptionRow {
   renews: string;
 }
 
-export function mapSubscription(s: AnyRow): AdminSubscriptionRow {
-  const amount = Number(s.amount ?? 0);
-  return {
-    id: s.id,
-    store: text(s.store ?? s.vendor),
-    plan: text(s.plan),
-    interval: text(s.interval),
-    amount,
-    status: text(s.status),
-    renews: text(s.renews),
-  };
-}
-
-/** The backend has no ticketing module yet; keep the UI working on sample data. */
-export function mapTicket(t: AnyRow): AdminTicketRow {
-  return {
-    id: t.id,
-    subject: text(t.subject),
-    requester: text(t.requester),
-    store: text(t.store),
-    priority: text(t.priority, "Medium"),
-    status: text(t.status),
-    opened: text(t.opened),
-  };
-}
-
 export interface AdminTicketRow {
   id: string;
   subject: string;
@@ -290,16 +193,4 @@ export interface AdminTicketRow {
   priority: string;
   status: string;
   opened: string;
-}
-
-/** Convenience: rows ?? fallback, memoized. */
-export function useRowsOrFallback<T>(state: AdminListState<T>, fallback: T[]): { rows: T[]; live: boolean; loading: boolean } {
-  return useMemo(
-    () => ({
-      rows: state.rows ?? fallback,
-      live: state.live,
-      loading: state.loading,
-    }),
-    [state.rows, state.live, state.loading, fallback]
-  );
 }

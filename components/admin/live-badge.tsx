@@ -15,7 +15,7 @@ export function LiveBadge({ live, loading }: { live: boolean; loading?: boolean 
     </Badge>
   ) : (
     <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-      Sample data
+      Unavailable
     </Badge>
   );
 }

@@ -25,17 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { adminStaff, type AdminStaff } from "@/lib/admin-data";
-
-const platformFees = [
-  { label: "Retail & Wholesale transaction fee", value: "3%" },
-  { label: "Food & Restaurant transaction fee", value: "5%" },
-  { label: "Ticketing transaction fee", value: "5%" },
-  { label: "Product markup (markup model)", value: "₦500" },
-];
-
-const countries = ["Nigeria", "United Kingdom", "Kenya", "Ghana", "Rwanda"];
+import type { AdminStaff } from "@/lib/admin-data";
+import { Skeleton } from "@/components/ui/skeleton";
 const staffRoles = ["Super Admin", "Operations Admin", "Finance Admin", "Support Admin", "Viewer"];
 
 type StaffResponse = {
@@ -44,7 +35,7 @@ type StaffResponse = {
 };
 
 export default function SettingsPage() {
-  const [staff, setStaff] = useState<AdminStaff[]>(adminStaff);
+  const [staff, setStaff] = useState<AdminStaff[]>([]);
   const [live, setLive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -70,12 +61,12 @@ export default function SettingsPage() {
       if (!response.ok) throw new Error(`Staff endpoint returned ${response.status}`);
 
       const payload = (await response.json()) as StaffResponse;
-      if (!Array.isArray(payload.data)) throw new Error("Unexpected staff response shape");
+      if (payload.status !== "success" || !Array.isArray(payload.data)) throw new Error("Unexpected staff response shape");
 
       setStaff(payload.data);
       setLive(true);
     } catch {
-      setStaff(adminStaff);
+      setStaff([]);
       setLive(false);
     } finally {
       setLoading(false);
@@ -101,15 +92,9 @@ export default function SettingsPage() {
 
       if (!response.ok) throw new Error(`Staff endpoint returned ${response.status}`);
 
-      const body = (await response.json()) as { data?: AdminStaff };
-      const created =
-        body.data ??
-        ({
-          id: `staff-${Date.now()}`,
-          lastActive: "Pending",
-          status: "Invited",
-          ...payload,
-        } satisfies AdminStaff);
+      const body = (await response.json()) as { status?: string; data?: AdminStaff };
+      if (body.status !== "success" || !body.data?.id) throw new Error("Staff creation was not confirmed");
+      const created = body.data;
 
       setStaff((current) => [created, ...current]);
       setLive(true);
@@ -156,13 +141,8 @@ export default function SettingsPage() {
           <CardHeader className="border-b pb-3">
             <CardTitle className="text-base">Fees & monetization</CardTitle>
           </CardHeader>
-          <CardContent className="divide-y p-0">
-            {platformFees.map((fee) => (
-              <div key={fee.label} className="flex items-center justify-between px-5 py-3 text-sm">
-                <span className="text-muted-foreground">{fee.label}</span>
-                <span className="font-semibold">{fee.value}</span>
-              </div>
-            ))}
+          <CardContent className="pt-4 text-sm text-muted-foreground">
+            Configuration unavailable.
           </CardContent>
         </Card>
 
@@ -171,9 +151,7 @@ export default function SettingsPage() {
             <CardTitle className="text-base">Supported countries</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2 pt-4">
-            {countries.map((country) => (
-              <Badge key={country} variant="secondary">{country}</Badge>
-            ))}
+            <p className="text-sm text-muted-foreground">Configuration unavailable.</p>
           </CardContent>
         </Card>
 
@@ -181,21 +159,8 @@ export default function SettingsPage() {
           <CardHeader className="border-b pb-3">
             <CardTitle className="text-base">Platform status</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-0 divide-y p-0 md:grid-cols-2 md:divide-x md:divide-y-0">
-            <div className="flex items-center justify-between px-5 py-4 text-sm">
-              <div>
-                <p>New merchant signups</p>
-                <p className="text-xs text-muted-foreground">Allow vendor registration</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-            <div className="flex items-center justify-between px-5 py-4 text-sm">
-              <div>
-                <p>Maintenance mode</p>
-                <p className="text-xs text-muted-foreground">Show maintenance banner on all storefronts</p>
-              </div>
-              <Switch />
-            </div>
+          <CardContent className="pt-4 text-sm text-muted-foreground">
+            Configuration unavailable.
           </CardContent>
         </Card>
       </div>
@@ -254,7 +219,7 @@ function StaffAccessSection({
             </Button>
             <Dialog open={dialogOpen} onOpenChange={onDialogOpenChange}>
               <DialogTrigger asChild>
-                <Button size="sm">
+                <Button size="sm" disabled={!live || loading}>
                   <Plus className="size-4" />
                   Add staff
                 </Button>
@@ -301,9 +266,12 @@ function StaffAccessSection({
         </div>
       </CardHeader>
       <CardContent className="p-0">
+        {loading ? <Skeleton className="m-5 h-48" aria-label="Loading staff" /> : !live ? (
+          <p role="status" className="p-5 text-sm text-muted-foreground">Staff data unavailable.</p>
+        ) : <>
         <div className="grid border-b text-sm sm:grid-cols-3">
           <div className="border-b px-5 py-4 sm:border-b-0 sm:border-r">
-            <p className="text-xs text-muted-foreground">Total staff</p>
+            <p className="text-xs text-muted-foreground">Staff in loaded results</p>
             <p className="mt-1 text-2xl font-bold">{staff.length}</p>
           </div>
           <div className="border-b px-5 py-4 sm:border-b-0 sm:border-r">
@@ -327,6 +295,7 @@ function StaffAccessSection({
               </tr>
             </thead>
             <tbody className="divide-y">
+              {!staff.length && <tr><td colSpan={4} className="px-5 py-8 text-center text-muted-foreground">No staff found.</td></tr>}
               {staff.map((member) => (
                 <tr key={member.id}>
                   <td className="px-5 py-4">
@@ -352,6 +321,7 @@ function StaffAccessSection({
             </tbody>
           </table>
         </div>
+        </>}
       </CardContent>
     </Card>
   );
