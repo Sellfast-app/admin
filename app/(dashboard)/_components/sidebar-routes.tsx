@@ -4,6 +4,7 @@ import { SidebarItem } from "./sidebar-item";
 import {
   Banknote,
   Bike,
+  Gift,
   LayoutDashboardIcon,
   LifeBuoy,
   ReceiptText,
@@ -27,6 +28,7 @@ const adminRoutes: Route[] = [
   { icon: ReceiptText, label: "Transactions", href: "/transactions" },
   { icon: Bike, label: "Deliveries", href: "/deliveries" },
   { icon: Banknote, label: "Finance", href: "/finance" },
+  { icon: Gift, label: "Coupons", href: "/coupons" },
   { icon: Wallet, label: "Subscriptions", href: "/subscriptions" },
   { icon: LifeBuoy, label: "Support", href: "/support" },
 ];
