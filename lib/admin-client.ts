@@ -105,7 +105,7 @@ export function useAdminList<T>(
 
   const refresh = useCallback(() => setTick((t) => t + 1), []);
 
-  return { rows, total: meta?.total ?? 0, page: meta?.page ?? 1, lastPage: meta?.lastPage ?? 1, live, loading, error, refresh };
+  return { rows, total: meta?.total ?? 0, page: meta?.page ?? 1, lastPage: meta?.lastPage ?? 1, live, loading: loading || queryKey !== debouncedKey, error, refresh };
 }
 
 // ── Row adapters (server rows -> existing UI row shapes) ────────────────────
