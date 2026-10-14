@@ -8,22 +8,24 @@ import type { AdminOrder } from "@/lib/admin-data";
 import { useAdminList, type AdminOrderRow } from "@/lib/admin-client";
 import { formatCurrency } from "@/lib/admin-types";
 import { MetricState } from "@/components/admin/metric-state";
-
-const tabs = ["All", "Website", "WhatsApp AI", "Web Chat", "Sendbox", "Relay"];
+import { filterOrders, orderChannels, type OrderChannel } from "@/lib/admin-order-filters";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function OrdersPage() {
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState("All");
+  const [tab, setTab] = useState<OrderChannel>("All");
+  const [page, setPage] = useState(1);
 
-  const state = useAdminList<AdminOrderRow>("orders", { search, channel: tab === "All" ? undefined : tab }, { limit: 50 });
+  const state = useAdminList<AdminOrderRow>("orders", { search, channel: tab === "All" ? undefined : tab, page }, { limit: 50 });
   const { rows, live, loading } = useMemo(
     () => ({ rows: state.rows ?? [], live: state.live, loading: state.loading }),
     [state.rows, state.live, state.loading]
   );
 
   const filtered = useMemo(
-    () => (live ? rows : rows.filter((order: AdminOrder) => tab === "All" || order.channel === tab)),
-    [rows, live, tab]
+    () => filterOrders(rows, tab, search),
+    [rows, tab, search]
   );
 
   const columns: Column<AdminOrder>[] = [
@@ -46,7 +48,7 @@ export default function OrdersPage() {
         <div>
           <h1 className="text-lg font-semibold">Orders</h1>
           <p className="text-xs text-muted-foreground">
-            {live ? `${state.total} orders across all channels` : "All orders across website, WhatsApp AI and web chat channels"}
+            {live && !loading ? `${filtered.length} matching orders on this page` : "Orders by sales channel"}
           </p>
         </div>
         <LiveBadge live={live} loading={loading} />
@@ -54,17 +56,22 @@ export default function OrdersPage() {
 
       <DataToolbar
         search={search}
-        onSearchChange={setSearch}
+        onSearchChange={value => { setSearch(value); setPage(1); }}
         searchPlaceholder="Search reference, store or customer..."
-        tabs={tabs}
+        tabs={[...orderChannels]}
         activeTab={tab}
-        onTabChange={setTab}
+        onTabChange={value => { setTab(value as OrderChannel); setPage(1); }}
         showExport={false}
       />
 
       <MetricState loading={loading} error={state.error} refresh={state.refresh} empty={false}>
-        <DataTable columns={columns} rows={filtered} emptyMessage="No orders match your filters" />
+        <DataTable columns={columns} rows={filtered} emptyMessage="No matching orders in this page of API results" />
       </MetricState>
+      {live && state.lastPage > 1 && <div className="flex items-center justify-end gap-3 text-sm">
+        <span>Page {page} of {state.lastPage}</span>
+        <Button variant="outline" size="icon" aria-label="Previous page" disabled={loading || page <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft size={16} /></Button>
+        <Button variant="outline" size="icon" aria-label="Next page" disabled={loading || page >= state.lastPage} onClick={() => setPage(p => p + 1)}><ChevronRight size={16} /></Button>
+      </div>}
     </div>
   );
 }

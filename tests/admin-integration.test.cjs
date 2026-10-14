@@ -14,6 +14,25 @@ function load(file, fetch) {
 }
 const reply = (status, data) => new Response(JSON.stringify(data), { status });
 
+test('order filters exclude website orders from conversational channels', () => {
+  const { filterOrders, orderChannels } = load('lib/admin-order-filters.ts');
+  const rows = [
+    { id: 'web', channel: 'Website', reference: 'ORD-1', store: 'Shop', customer: 'Customer' },
+    { id: 'wa', channel: 'WhatsApp AI', reference: 'ORD-2', store: 'Food', customer: 'Customer' },
+    { id: 'chat', channel: 'Web Chat', reference: 'ORD-3', store: 'Shop', customer: 'Customer' },
+    { id: 'delivery', channel: 'Sendbox' },
+    { id: 'unknown' },
+  ];
+  assert.equal(orderChannels.join(','), 'All,Website,WhatsApp AI,Web Chat');
+  for (const [channel, id] of [['Website', 'web'], ['WhatsApp AI', 'wa'], ['Web Chat', 'chat']]) {
+    assert.equal(filterOrders(rows, channel, '').map(row => row.id).join(','), id);
+  }
+  assert.equal(filterOrders([rows[0]], 'WhatsApp AI', '').length, 0);
+  assert.equal(filterOrders(rows, 'Web Chat', 'food').length, 0);
+  assert.equal(filterOrders(rows, 'All', ' ord-2 ')[0].id, 'wa');
+  assert.equal(filterOrders(rows, 'All', '').length, rows.length);
+});
+
 test('maps only confirmed list routes and preserves pagination', () => {
   const { adminEndpoints, normalizeAdminEnvelope } = load('lib/admin-endpoints.ts');
   assert.equal(adminEndpoints.orders, '/admin/orders/list');
