@@ -12,6 +12,8 @@ export const adminEndpoints: Record<string, string> = {
   "overview/merchant-growth": "/admin/overview/merchant-growth",
   "finance/metrics": "/admin/finance/metrics",
   "finance/gateway-volume": "/admin/finance/gateway-volume",
+  coupons: "/api/coupons",
+  "coupons/create": "/api/coupon/create",
 };
 
 export function normalizeAdminEnvelope(parsed: Record<string, unknown>) {

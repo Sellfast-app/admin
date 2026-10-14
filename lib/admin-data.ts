@@ -81,3 +81,12 @@ export interface AdminStore {
   revenue: number;
   status: string;
 }
+
+export interface AdminCoupon {
+  code: string;
+  store_name: string;
+  startDate: string;
+  expiryDate: string;
+  usageLimit: number;
+  status?: string;
+}

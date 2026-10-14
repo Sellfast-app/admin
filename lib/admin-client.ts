@@ -194,3 +194,11 @@ export interface AdminTicketRow {
   status: string;
   opened: string;
 }
+
+export interface AdminCouponRow {
+  code: string;
+  store_name: string;
+  startDate: string;
+  expiryDate: string;
+  usageLimit: number;
+}
