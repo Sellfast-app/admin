@@ -4,11 +4,11 @@ import { useMemo, useState } from "react";
 import { DataToolbar } from "@/components/admin/data-toolbar";
 import { DataTable, type Column } from "@/components/admin/data-table";
 import { LiveBadge } from "@/components/admin/live-badge";
-import { adminSubscriptions, type AdminSubscription } from "@/lib/admin-data";
+import type { AdminSubscription } from "@/lib/admin-data";
 import { useAdminList, type AdminSubscriptionRow } from "@/lib/admin-client";
 import { formatCurrency } from "@/lib/admin-types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { MetricState } from "@/components/admin/metric-state";
 
 const tabs = ["All", "Active", "Trialing", "Cancelled", "Overdue"];
 
@@ -18,7 +18,7 @@ export default function SubscriptionsPage() {
 
   const state = useAdminList<AdminSubscriptionRow>("subscriptions", { search, status: tab === "All" ? undefined : tab }, { limit: 50 });
   const { rows, live, loading } = useMemo(
-    () => ({ rows: state.rows ?? adminSubscriptions, live: state.live, loading: state.loading }),
+    () => ({ rows: state.rows ?? [], live: state.live, loading: state.loading }),
     [state.rows, state.live, state.loading]
   );
 
@@ -40,12 +40,8 @@ export default function SubscriptionsPage() {
     { key: "renews", header: "Renews" },
   ];
 
-  const subscriptionCount = live
-    ? rows.filter((s: AdminSubscriptionRow) => s.plan?.toLowerCase().includes("sub")).length
-    : adminSubscriptions.filter((s) => s.plan === "Subscription").length;
-  const markupCount = live
-    ? rows.filter((s: AdminSubscriptionRow) => Number(s.amount) === 0).length
-    : adminSubscriptions.filter((s) => s.plan === "Markup").length;
+  const subscriptionCount = rows.filter((s) => s.plan?.toLowerCase() === "subscription").length;
+  const markupCount = rows.filter((s) => s.plan?.toLowerCase() === "markup").length;
   const attentionCount = rows.filter((s) =>
     ["Overdue", "Trialing", "overdue", "trialing"].includes(s.status)
   ).length;
@@ -56,12 +52,13 @@ export default function SubscriptionsPage() {
         <div>
           <h1 className="text-lg font-semibold">Subscriptions</h1>
           <p className="text-xs text-muted-foreground">
-            Plan distribution across subscription and markup monetization models
+            Plan distribution in the loaded results
           </p>
         </div>
         <LiveBadge live={live} loading={loading} />
       </div>
 
+      <MetricState loading={loading} error={state.error} refresh={state.refresh} empty={false}>
       <section className="grid gap-5 md:grid-cols-3">
         <Card className="shadow-none">
           <CardHeader className="pb-2"><CardTitle className="text-sm">Subscription plan stores</CardTitle></CardHeader>
@@ -76,6 +73,7 @@ export default function SubscriptionsPage() {
           <CardContent><p className="text-2xl font-bold">{attentionCount}</p></CardContent>
         </Card>
       </section>
+      </MetricState>
 
       <DataToolbar
         search={search}
@@ -84,10 +82,10 @@ export default function SubscriptionsPage() {
         tabs={tabs}
         activeTab={tab}
         onTabChange={setTab}
-        onExport={() => toast.success("Subscriptions export queued")}
+        showExport={false}
       />
 
-      <DataTable columns={columns} rows={filtered} emptyMessage="No subscriptions match your filters" />
+      {!loading && !state.error && <DataTable columns={columns} rows={filtered} emptyMessage="No subscriptions match your filters" />}
     </div>
   );
 }

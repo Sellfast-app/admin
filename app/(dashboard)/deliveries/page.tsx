@@ -4,9 +4,9 @@ import { useMemo, useState } from "react";
 import { DataToolbar } from "@/components/admin/data-toolbar";
 import { DataTable, type Column } from "@/components/admin/data-table";
 import { LiveBadge } from "@/components/admin/live-badge";
-import { adminDeliveries, type AdminDelivery } from "@/lib/admin-data";
+import type { AdminDelivery } from "@/lib/admin-data";
 import { useAdminList, type AdminDeliveryRow } from "@/lib/admin-client";
-import { toast } from "sonner";
+import { MetricState } from "@/components/admin/metric-state";
 
 const tabs = ["All", "GIG Logistics", "Sendbox", "Bolt", "Manual"];
 
@@ -14,9 +14,9 @@ export default function DeliveriesPage() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("All");
 
-  const state = useAdminList<AdminDeliveryRow>("deliveries", { search }, { limit: 50 });
+  const state = useAdminList<AdminDeliveryRow>("deliveries", { search, provider: tab === "All" ? undefined : tab }, { limit: 50 });
   const { rows, live, loading } = useMemo(
-    () => ({ rows: state.rows ?? adminDeliveries, live: state.live, loading: state.loading }),
+    () => ({ rows: state.rows ?? [], live: state.live, loading: state.loading }),
     [state.rows, state.live, state.loading]
   );
 
@@ -55,10 +55,12 @@ export default function DeliveriesPage() {
         tabs={tabs}
         activeTab={tab}
         onTabChange={setTab}
-        onExport={() => toast.success("Deliveries export queued")}
+        showExport={false}
       />
 
-      <DataTable columns={columns} rows={filtered} emptyMessage="No deliveries match your filters" />
+      <MetricState loading={loading} error={state.error} refresh={state.refresh} empty={false}>
+        <DataTable columns={columns} rows={filtered} emptyMessage="No deliveries match your filters" />
+      </MetricState>
     </div>
   );
 }

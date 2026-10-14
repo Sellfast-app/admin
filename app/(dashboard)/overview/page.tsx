@@ -1,168 +1,66 @@
 "use client";
 
-import { StatCard, type StatItem } from "@/components/admin/stat-card";
+import { useState } from "react";
 import { BarsChart } from "@/components/admin/bars-chart";
 import { LineChart } from "@/components/admin/line-chart";
-import { LiveBadge } from "@/components/admin/live-badge";
+import { MetricState } from "@/components/admin/metric-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { signupsData, retentionData, growthData, channelMix } from "@/lib/admin-data";
-import { useAdminPayload } from "@/lib/admin-client";
-import { formatCurrency } from "@/lib/admin-types";
-
-interface TrendPoint {
-  label: string;
-  value: number;
-}
-
-interface OverviewPayload {
-  stats: StatItem[];
-  metrics: Record<string, number>;
-  signups: TrendPoint[];
-  retention: TrendPoint[];
-  growth: TrendPoint[];
-  channelMix: { label: string; value: number }[];
-  topStores: { name: string; revenue: number }[];
-  generatedAt: string;
-}
+import { chartPath, parseChart } from "@/lib/admin-metrics";
+import { useAdminMetric } from "@/lib/use-admin-metric";
 
 export default function OverviewPage() {
-  const { data, live, loading } = useAdminPayload<OverviewPayload>("metrics/overview");
+  const currentYear = new Date().getFullYear();
+  const [growthYear, setGrowthYear] = useState(String(currentYear));
+  const [signupsYear, setSignupsYear] = useState(String(currentYear));
+  const [retentionYear, setRetentionYear] = useState(String(currentYear));
+  const [month, setMonth] = useState("all");
+  const growth = useAdminMetric(chartPath("merchant-growth", growthYear), parseChart);
+  const signups = useAdminMetric(chartPath("signups", signupsYear), parseChart);
+  const retention = useAdminMetric(chartPath("retention", retentionYear, month), parseChart);
+  const charts = [
+    { title: "Merchant growth", state: growth, line: true, year: growthYear, setYear: setGrowthYear },
+    { title: "Signups", state: signups, line: false, year: signupsYear, setYear: setSignupsYear },
+    { title: "Retention", state: retention, line: false, year: retentionYear, setYear: setRetentionYear },
+  ];
 
-  const stats = data?.stats ?? [];
-  const growthPoints = data?.growth?.length ? data.growth : growthData;
-  const signupPoints = data?.signups?.length ? data.signups : signupsData;
-  const retentionPoints = data?.retention?.length ? data.retention : retentionData;
-  const channels = data?.channelMix?.length ? data.channelMix : channelMix;
-  const topStores = data?.topStores?.length ? data.topStores : [];
-
-  const growthDelta =
-    growthPoints.length >= 2 && growthPoints[growthPoints.length - 2].value > 0
-      ? Math.round(
-          ((growthPoints[growthPoints.length - 1].value - growthPoints[growthPoints.length - 2].value) /
-            growthPoints[growthPoints.length - 2].value) *
-            100
-        )
-      : null;
-
-  return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">Overview</h1>
-          <p className="text-xs text-muted-foreground">Platform-wide metrics across all merchants</p>
-        </div>
-        <LiveBadge live={live} loading={loading} />
-      </div>
-
-      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        {(loading && !data ? Array.from({ length: 8 }) : stats).map((stat, index) =>
-          stat ? (
-            <StatCard key={(stat as StatItem).label} stat={stat as StatItem} />
-          ) : (
-            <Skeleton key={index} className="h-[118px] rounded-xl" />
-          )
-        )}
-      </section>
-
-      <section className="grid gap-5 xl:grid-cols-[1.35fr_1fr]">
-        <Card className="shadow-none">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <CardTitle className="text-base">Merchant growth</CardTitle>
-                <p className="text-xs text-muted-foreground">GMV across all sales channels</p>
-              </div>
-              {growthDelta !== null && (
-                <Badge
-                  variant="outline"
-                  className={growthDelta >= 0 ? "border-primary/20 bg-primary/10 text-primary" : "border-red-200 bg-red-50 text-red-700"}
-                >
-                  {growthDelta >= 0 ? "+" : ""}
-                  {growthDelta}% MoM
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            <LineChart points={growthPoints} />
-          </CardContent>
-        </Card>
-
-        <div className="space-y-5">
-          <Card className="shadow-none">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Signups</CardTitle>
-              <p className="text-xs text-muted-foreground">New merchants per month</p>
-            </CardHeader>
-            <CardContent>
-              <BarsChart points={signupPoints} />
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-none">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Retention</CardTitle>
-              <p className="text-xs text-muted-foreground">Monthly active merchant rate</p>
-            </CardHeader>
-            <CardContent>
-              <BarsChart points={retentionPoints} />
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      <section className="grid gap-5 md:grid-cols-2">
-        <Card className="shadow-none">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Sales channel mix</CardTitle>
-            <p className="text-xs text-muted-foreground">Order share by fulfillment channel</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {channels.map((channel) => (
-              <div key={channel.label} className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{channel.label}</span>
-                  <span className="text-muted-foreground">{channel.value}%</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all"
-                    style={{ width: `${channel.value}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-none">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Top stores by revenue</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              {live ? "All time, all countries" : "Sample data — connect the backend to see live values"}
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {topStores.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">No store revenue recorded yet</p>
-            ) : (
-              topStores.map((store, index) => (
-                <div key={store.name} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
-                      {index + 1}
-                    </span>
-                    <span className="text-sm font-medium">{store.name}</span>
-                  </div>
-                  <span className="text-sm font-semibold">{formatCurrency(store.revenue)}</span>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </section>
+  return <div className="space-y-6 p-4 sm:p-6">
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <div><h1 className="text-lg font-semibold">Overview</h1><p className="text-sm text-muted-foreground">Merchant activity</p></div>
     </div>
-  );
+    <section className="grid min-w-0 gap-5 lg:grid-cols-2">
+      {charts.map(({ title, state, line, year, setYear }) => <Card key={title} className={`min-w-0 shadow-none ${line ? "lg:col-span-2" : ""}`}>
+        <CardHeader className="flex flex-wrap items-center justify-between gap-3">
+          <div><CardTitle className="text-base">{title}</CardTitle>
+            {title === "Retention" && <p className="mt-1 text-sm text-muted-foreground">Monthly active merchants</p>}
+          </div>
+          <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
+          {line && state.data?.momGrowth && <span className="text-sm">{state.data.momGrowth} MoM</span>}
+          <select aria-label={`${title} year`} value={year} onChange={e => setYear(e.target.value)} className="h-10 max-w-full rounded-md border bg-background px-3 text-base">
+            <option value="all">All years</option>
+            {Array.from({ length: 10 }, (_, i) => currentYear - i).map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+          {title === "Retention" && <label className="flex items-center gap-2 text-sm">Month
+            <select aria-label="Retention month" value={month} onChange={e => setMonth(e.target.value)} className="h-10 max-w-full rounded-md border bg-background px-2 text-base">
+              <option value="all">All months</option>
+              {Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>{new Date(2020, i, 1).toLocaleString("en", { month: "long" })}</option>)}
+            </select>
+          </label>}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <MetricState {...state} empty={!state.data?.chartData.length}>
+            <div className="overflow-x-auto">
+              <div style={{ minWidth: (state.data?.chartData.length ?? 0) > 6 ? `${state.data!.chartData.length * 50}px` : undefined }}>
+                {line && (state.data?.chartData.length ?? 0) > 1 ? <LineChart points={state.data!.chartData} /> : <BarsChart points={state.data?.chartData ?? []} />}
+              </div>
+            </div>
+            <details className="mt-4 text-sm"><summary className="cursor-pointer">View values</summary><dl className="mt-3 space-y-2">{state.data?.chartData.map(p => <div key={p.label} className="flex justify-between gap-3"><dt>{p.label}</dt><dd className="tabular-nums">{p.value.toLocaleString()}</dd></div>)}</dl></details>
+          </MetricState>
+        </CardContent>
+      </Card>)}
+    </section>
+    <section className="grid gap-5 sm:grid-cols-2">
+      {["Sales channel mix", "Top stores by revenue"].map(title => <Card key={title} className="shadow-none"><CardHeader><CardTitle className="text-base">{title}</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground">Data unavailable.</p></CardContent></Card>)}
+    </section>
+  </div>;
 }

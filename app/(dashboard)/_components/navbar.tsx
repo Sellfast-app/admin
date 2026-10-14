@@ -15,9 +15,6 @@ export const Navbar = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="hidden sm:inline-flex items-center rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
-            Super Admin
-          </span>
           <Button
             variant="outline"
             size="sm"

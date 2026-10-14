@@ -4,10 +4,10 @@ import { useMemo, useState } from "react";
 import { DataToolbar } from "@/components/admin/data-toolbar";
 import { DataTable, type Column } from "@/components/admin/data-table";
 import { LiveBadge } from "@/components/admin/live-badge";
-import { adminOrders, type AdminOrder } from "@/lib/admin-data";
+import type { AdminOrder } from "@/lib/admin-data";
 import { useAdminList, type AdminOrderRow } from "@/lib/admin-client";
 import { formatCurrency } from "@/lib/admin-types";
-import { toast } from "sonner";
+import { MetricState } from "@/components/admin/metric-state";
 
 const tabs = ["All", "Website", "WhatsApp AI", "Web Chat", "Sendbox", "Relay"];
 
@@ -15,9 +15,9 @@ export default function OrdersPage() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("All");
 
-  const state = useAdminList<AdminOrderRow>("orders", { search, status: tab === "All" ? undefined : tab }, { limit: 50 });
+  const state = useAdminList<AdminOrderRow>("orders", { search, channel: tab === "All" ? undefined : tab }, { limit: 50 });
   const { rows, live, loading } = useMemo(
-    () => ({ rows: state.rows ?? adminOrders, live: state.live, loading: state.loading }),
+    () => ({ rows: state.rows ?? [], live: state.live, loading: state.loading }),
     [state.rows, state.live, state.loading]
   );
 
@@ -59,10 +59,12 @@ export default function OrdersPage() {
         tabs={tabs}
         activeTab={tab}
         onTabChange={setTab}
-        onExport={() => toast.success("Orders export queued")}
+        showExport={false}
       />
 
-      <DataTable columns={columns} rows={filtered} emptyMessage="No orders match your filters" />
+      <MetricState loading={loading} error={state.error} refresh={state.refresh} empty={false}>
+        <DataTable columns={columns} rows={filtered} emptyMessage="No orders match your filters" />
+      </MetricState>
     </div>
   );
 }
