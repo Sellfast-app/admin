@@ -44,7 +44,10 @@ export async function forwardToUpstream(
   }
 
   const path = request.nextUrl.pathname.replace(/^\/api\/admin\/?/, "");
-  const upstreamPath = adminEndpoints[path];
+  const posRequestMatch = path.match(/^pos-requests\/([0-9a-f-]{36})$/i);
+  const upstreamPath = adminEndpoints[path] || (posRequestMatch
+    ? `/admin/pos-requests/${encodeURIComponent(posRequestMatch[1])}`
+    : undefined);
   if (!upstreamPath) return fail(501, "This endpoint is awaiting a confirmed backend contract");
   try {
     const response = await fetch(`${base}${upstreamPath}${request.nextUrl.search}`, {

@@ -7,6 +7,7 @@ import {
   Gift,
   LayoutDashboardIcon,
   LifeBuoy,
+  MonitorCog,
   ReceiptText,
   Settings,
   ShoppingBag,
@@ -30,6 +31,7 @@ const adminRoutes: Route[] = [
   { icon: Banknote, label: "Finance", href: "/finance" },
   { icon: Gift, label: "Coupons", href: "/coupons" },
   { icon: Wallet, label: "Subscriptions", href: "/subscriptions" },
+  { icon: MonitorCog, label: "POS Requests", href: "/pos-requests" },
   { icon: LifeBuoy, label: "Support", href: "/support" },
 ];
 
