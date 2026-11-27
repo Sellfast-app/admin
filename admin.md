@@ -107,6 +107,8 @@ All endpoints below require the `admin_token` cookie (except login).
 | `/api/admin/deliveries` | `/admin/deliveries` | `page, limit, provider, status` | Deliveries page |
 | `/api/admin/finance/summary` | `/admin/finance/summary` | `period` | Finance page |
 | `/api/admin/subscriptions` | `/admin/subscriptions` | `page, limit, plan, status` | Subscriptions page |
+| `/api/admin/pricing/subscription` | `/admin/pricing/subscription` | `currency`; PUT `{ currency, monthly_amount }` | Settings subscription pricing |
+| `/api/admin/pricing/markup` | `/admin/pricing/markup` | `currency`; PUT `{ currency, amount }` | Settings markup pricing |
 | `/api/admin/support/tickets` | `/admin/support/tickets` | `page, limit, status, priority` | Support page |
 | `/api/admin/audit-log` | `/admin/audit-log` | `page, limit, module, staffId, from, to` | Audit ledger (PRD 5.2) |
 | `/api/admin/staff` | `/admin/staff` | `page, limit, search, role, status` | Settings staff management |
@@ -122,6 +124,14 @@ GET ...?page=1&limit=20&search=&status=&from=&to=&sort=
 **Split-payment note (PRD 2.3):** every transaction row should include
 `vendorAmount` and `platformFee` (₦500 markup + transaction %) alongside the
 total, so the admin Finance view can reconcile without extra calls.
+
+The subscription pricing `PUT` creates Paystack plans for quarterly,
+biannually, and annual billing before persisting the new monthly amount. The
+official NGN base is 5,000 per month (₦15,000 / ₦30,000 / ₦60,000 for 3 / 6 / 12
+months). After migration 072 clears the previous plan codes, save NGN pricing in
+Admin Settings to generate matching Paystack plans. Other currencies must be
+separately configured. New plans apply to new subscribers; existing subscribers
+remain attached to their current plan.
 
 **Audit note (PRD 5.2):** every admin **write** action on the backend must append
 an entry (timestamp, staffId, staffName, actionType, module, ipAddress,

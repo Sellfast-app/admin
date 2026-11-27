@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Plus, RefreshCw } from "lucide-react";
+import { Check, LoaderCircle, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { LiveBadge } from "@/components/admin/live-badge";
@@ -18,6 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -141,8 +142,10 @@ export default function SettingsPage() {
           <CardHeader className="border-b pb-3">
             <CardTitle className="text-base">Fees & monetization</CardTitle>
           </CardHeader>
-          <CardContent className="pt-4 text-sm text-muted-foreground">
-            Configuration unavailable.
+          <CardContent className="pt-4">
+            <MarkupSettingsSection />
+            <div className="my-6 border-t" />
+            <SubscriptionPricingSection />
           </CardContent>
         </Card>
 
@@ -164,6 +167,303 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+const markupCurrencies = [
+  { code: "NGN", name: "Nigerian naira", symbol: "₦" },
+  { code: "GBP", name: "Pound sterling", symbol: "£" },
+  { code: "KES", name: "Kenyan shilling", symbol: "KSh" },
+  { code: "GHS", name: "Ghanaian cedi", symbol: "GH₵" },
+  { code: "RWF", name: "Rwandan franc", symbol: "FRw" },
+] as const;
+const subscriptionCurrencies = markupCurrencies.filter(({ code }) => ["NGN", "KES", "GHS"].includes(code));
+
+type MarkupSetting = {
+  currency: string;
+  amount: string | number;
+  updated_at?: string;
+} | null;
+
+function MarkupSettingsSection() {
+  const [currency, setCurrency] = useState<(typeof markupCurrencies)[number]["code"]>("NGN");
+  const [amount, setAmount] = useState("");
+  const [loadingMarkup, setLoadingMarkup] = useState(true);
+  const [savingMarkup, setSavingMarkup] = useState(false);
+  const [markupError, setMarkupError] = useState("");
+  const [configured, setConfigured] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoadingMarkup(true);
+    setMarkupError("");
+
+    fetch(`/api/admin/pricing/markup?currency=${currency}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const payload = (await response.json()) as { status?: string; message?: string; data?: MarkupSetting };
+        if (!response.ok || payload.status !== "success") {
+          throw new Error(payload.message || "Unable to load markup setting");
+        }
+        const setting = payload.data;
+        setConfigured(Boolean(setting));
+        setAmount(setting ? String(setting.amount) : "");
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setConfigured(false);
+        setMarkupError(error instanceof Error ? error.message : "Unable to load markup setting");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingMarkup(false);
+      });
+
+    return () => controller.abort();
+  }, [currency]);
+
+  async function saveMarkup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value < 0) {
+      setMarkupError("Enter a valid markup amount of zero or more.");
+      return;
+    }
+
+    setSavingMarkup(true);
+    setMarkupError("");
+    try {
+      const response = await fetch("/api/admin/pricing/markup", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currency, amount: value }),
+      });
+      const payload = (await response.json()) as { status?: string; message?: string; data?: MarkupSetting };
+      if (!response.ok || payload.status !== "success" || !payload.data) {
+        throw new Error(payload.message || "Unable to save markup setting");
+      }
+      setAmount(String(payload.data.amount));
+      setConfigured(true);
+      toast.success(`${currency} markup updated`);
+    } catch (error) {
+      setMarkupError(error instanceof Error ? error.message : "Unable to save markup setting");
+      toast.error("Markup setting was not saved");
+    } finally {
+      setSavingMarkup(false);
+    }
+  }
+
+  const currencyDetails = markupCurrencies.find((item) => item.code === currency)!;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Set the additional amount charged per product unit on markup-plan stores. Vendor-listed prices stay unchanged.
+      </p>
+      <form onSubmit={saveMarkup} className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <div className="space-y-2">
+            <Label htmlFor="markup-currency">Currency</Label>
+            <Select value={currency} onValueChange={(value) => setCurrency(value as typeof currency)}>
+              <SelectTrigger id="markup-currency" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {markupCurrencies.map((item) => (
+                  <SelectItem key={item.code} value={item.code}>{item.code} · {item.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="markup-amount">Markup per product unit</Label>
+            <div className="relative">
+              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground">
+                {currencyDetails.symbol}
+              </span>
+              <Input
+                id="markup-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                className="pl-14 tabular-nums"
+                placeholder="0.00"
+                disabled={loadingMarkup || savingMarkup}
+                required
+              />
+            </div>
+          </div>
+        </div>
+        {markupError ? (
+          <p role="alert" className="text-sm text-destructive">{markupError}</p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {loadingMarkup ? "Loading current setting…" : configured ? `Current ${currency} setting is configured.` : `No ${currency} markup has been configured yet.`}
+          </p>
+        )}
+        <div className="flex items-center justify-between gap-3 border-t pt-4">
+          <span className="text-xs text-muted-foreground">Applied once per purchased item quantity.</span>
+          <Button type="submit" disabled={loadingMarkup || savingMarkup}>
+            {savingMarkup ? <LoaderCircle className="size-4 animate-spin" /> : configured ? <Check className="size-4" /> : null}
+            {savingMarkup ? "Saving…" : "Save markup"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+type SubscriptionSetting = {
+  currency: string;
+  monthly_amount: string | number;
+  payment_ready?: boolean;
+  intervals?: Record<string, { months: number; amount: number }>;
+} | null;
+
+function SubscriptionPricingSection() {
+  const [currency, setCurrency] = useState<(typeof markupCurrencies)[number]["code"]>("NGN");
+  const [monthlyAmount, setMonthlyAmount] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [configured, setConfigured] = useState(false);
+  const [paymentReady, setPaymentReady] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+
+    fetch(`/api/admin/pricing/subscription?currency=${currency}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const payload = (await response.json()) as { status?: string; message?: string; data?: SubscriptionSetting };
+        if (!response.ok || payload.status !== "success") {
+          throw new Error(payload.message || "Unable to load subscription price");
+        }
+        setConfigured(Boolean(payload.data));
+        setPaymentReady(Boolean(payload.data?.payment_ready));
+        setMonthlyAmount(payload.data ? String(payload.data.monthly_amount) : "");
+      })
+      .catch((reason: unknown) => {
+        if (reason instanceof DOMException && reason.name === "AbortError") return;
+        setConfigured(false);
+        setPaymentReady(false);
+        setError(reason instanceof Error ? reason.message : "Unable to load subscription price");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [currency]);
+
+  async function saveSubscriptionPrice(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const value = Number(monthlyAmount);
+    if (!Number.isFinite(value) || value <= 0) {
+      setError("Enter a monthly subscription price greater than zero.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/pricing/subscription", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currency, monthly_amount: value }),
+      });
+      const payload = (await response.json()) as { status?: string; message?: string; data?: SubscriptionSetting };
+      if (!response.ok || payload.status !== "success" || !payload.data) {
+        throw new Error(payload.message || "Unable to save subscription price");
+      }
+      setMonthlyAmount(String(payload.data.monthly_amount));
+      setConfigured(true);
+      setPaymentReady(Boolean(payload.data.payment_ready));
+      toast.success(`${currency} subscription price updated`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to save subscription price");
+      toast.error("Subscription price was not saved");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const details = markupCurrencies.find((item) => item.code === currency)!;
+  const monthly = Number(monthlyAmount);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-sm font-medium">Subscription price</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Set the monthly base price. Saving also creates Paystack plans for 3, 6, and 12-month automatic renewals.
+        </p>
+      </div>
+      <form onSubmit={saveSubscriptionPrice} className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <div className="space-y-2">
+            <Label htmlFor="subscription-currency">Currency</Label>
+            <Select value={currency} onValueChange={(value) => setCurrency(value as typeof currency)}>
+              <SelectTrigger id="subscription-currency" className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {subscriptionCurrencies.map((item) => (
+                  <SelectItem key={item.code} value={item.code}>{item.code} · {item.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="subscription-monthly-amount">Monthly price</Label>
+            <div className="relative">
+              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground">{details.symbol}</span>
+              <Input
+                id="subscription-monthly-amount"
+                type="number"
+                min="0.01"
+                step="0.01"
+                inputMode="decimal"
+                value={monthlyAmount}
+                onChange={(event) => setMonthlyAmount(event.target.value)}
+                className="pl-14 tabular-nums"
+                disabled={loading || saving}
+                required
+              />
+            </div>
+          </div>
+        </div>
+        {configured && Number.isFinite(monthly) && monthly > 0 && (
+          <p className="text-xs text-muted-foreground tabular-nums">
+            3 months: {details.symbol}{(monthly * 3).toLocaleString()} · 6 months: {details.symbol}{(monthly * 6).toLocaleString()} · 12 months: {details.symbol}{(monthly * 12).toLocaleString()}
+          </p>
+        )}
+        {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : (
+          <p className="text-xs text-muted-foreground">
+            {loading
+              ? "Loading current setting…"
+              : !configured
+                ? `No ${currency} subscription price is configured.`
+                : paymentReady
+                  ? `${currency} pricing and Paystack plans are ready. Saving will replace the current Paystack plans.`
+                  : `${currency} price is saved, but Paystack plans need to be synchronized. Save to create matching plans.`}
+          </p>
+        )}
+        <div className="flex items-center justify-between gap-3 border-t pt-4">
+          <span className="text-xs text-muted-foreground">New prices apply to new signups; existing subscriptions keep their current plan.</span>
+          <Button type="submit" disabled={loading || saving}>
+            {saving ? <LoaderCircle className="size-4 animate-spin" /> : configured ? <Check className="size-4" /> : null}
+            {saving ? "Saving…" : "Save subscription price"}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }
